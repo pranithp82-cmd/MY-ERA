@@ -100,6 +100,7 @@
     const calNextBtn = document.getElementById('cal-next-btn');
     const taskList = document.getElementById('task-list');
     const completedTaskList = document.getElementById('completed-task-list');
+    const incompleteTaskList = document.getElementById('incomplete-task-list');
     const taskForm = document.getElementById('add-task-form');
     const taskInput = document.getElementById('task-input');
     const taskCounter = document.getElementById('task-counter');
@@ -108,7 +109,13 @@
     const selectedDateSub = document.getElementById('selected-date-sub');
     const pendingCountLabel = document.getElementById('pending-count-label');
     const completedCountLabel = document.getElementById('completed-count-label');
+    const incompleteCountLabel = document.getElementById('incomplete-count-label');
     const btnSaveLifestyle = document.getElementById('btn-save-lifestyle');
+
+    function getTaskStatus(t) {
+      if (t && t.status) return t.status;
+      return t && t.completed ? 'completed' : 'pending';
+    }
 
     let habitsStore = {};
     try {
@@ -121,10 +128,10 @@
     const todayKey = getDateKey(REAL_TODAY);
     if (!habitsStore[todayKey]) {
       habitsStore[todayKey] = [
-        { id: '1', text: 'GYM', completed: true },
-        { id: '2', text: 'COLLEGE WORK', completed: false },
-        { id: '3', text: 'PERSONAL WORK', completed: false },
-        { id: '4', text: 'STUDY', completed: false }
+        { id: '1', text: 'GYM', completed: true, status: 'completed' },
+        { id: '2', text: 'COLLEGE WORK', completed: false, status: 'pending' },
+        { id: '3', text: 'PERSONAL WORK', completed: false, status: 'incomplete' },
+        { id: '4', text: 'STUDY', completed: false, status: 'pending' }
       ];
       saveHabitsStore();
     }
@@ -182,7 +189,8 @@
         const isTodayDate = isSameDay(thisDate, REAL_TODAY);
         
         const dayTasks = habitsStore[thisKey] || [];
-        const hasCompleted = dayTasks.length > 0 && dayTasks.some(t => t.completed);
+        const hasCompleted = dayTasks.length > 0 && dayTasks.some(t => getTaskStatus(t) === 'completed');
+        const hasIncomplete = dayTasks.length > 0 && dayTasks.some(t => getTaskStatus(t) === 'incomplete');
 
         let btnClass = 'cal-day py-2 rounded-lg transition-all relative select-none ';
         if (isSelected) {
@@ -193,10 +201,21 @@
           btnClass += 'text-on-surface-variant hover:text-primary hover:bg-surface-container';
         }
 
+        let dotsHtml = '';
+        if (!isSelected) {
+          if (hasCompleted && hasIncomplete) {
+            dotsHtml = '<div class="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span><span class="w-1.5 h-1.5 rounded-full border border-primary"></span></div>';
+          } else if (hasCompleted) {
+            dotsHtml = '<span class="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary"></span>';
+          } else if (hasIncomplete) {
+            dotsHtml = '<span class="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full border border-primary"></span>';
+          }
+        }
+
         html += `
           <button class="${btnClass}" data-date="${thisKey}">
             ${day}
-            ${hasCompleted && !isSelected ? '<span class="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary"></span>' : ''}
+            ${dotsHtml}
           </button>
         `;
       }
@@ -234,9 +253,11 @@
 
     function renderTasks() {
       const tasks = getTasksForDate(selectedDate);
-      const pendingTasks = tasks.filter(t => !t.completed);
-      const completedTasks = tasks.filter(t => t.completed);
+      const pendingTasks = tasks.filter(t => getTaskStatus(t) === 'pending');
+      const completedTasks = tasks.filter(t => getTaskStatus(t) === 'completed');
+      const incompleteTasks = tasks.filter(t => getTaskStatus(t) === 'incomplete');
 
+      // 1. Render To-Do / Pending Tasks
       if (pendingTasks.length === 0) {
         taskList.innerHTML = `
           <div class="p-3 text-center text-xs font-semibold text-on-surface-variant/60 bg-surface-container-low/50 rounded-xl border border-dashed border-outline-variant/30">
@@ -245,20 +266,24 @@
         `;
       } else {
         taskList.innerHTML = pendingTasks.map(task => `
-          <div class="task-item flex items-center justify-between p-space-md bg-surface-container-low rounded-xl hover:bg-surface-container transition-colors select-none cursor-pointer border border-outline-variant/30" data-id="${task.id}">
-            <div class="flex items-center gap-space-md min-w-0">
-              <div class="task-checkbox w-5 h-5 rounded-full bg-surface-container-high flex items-center justify-center shrink-0 transition-colors border border-outline-variant/50">
-                <span class="material-symbols-outlined text-[15px] text-transparent">check</span>
-              </div>
-              <span class="task-text text-xs font-bold text-primary truncate tracking-wide">${escapeHtml(task.text)}</span>
+          <div class="task-item flex items-center justify-between p-space-md py-2.5 px-3 bg-surface-container-low rounded-xl hover:bg-surface-container transition-colors select-none border border-outline-variant/30 group" data-id="${task.id}">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <button type="button" class="btn-action-complete w-7 h-7 rounded-lg bg-surface-container flex items-center justify-center shrink-0 text-on-surface-variant hover:text-primary hover:bg-surface-container-high border border-outline-variant/40 active:scale-95 transition-all" title="Mark Completed (✓)">
+                <span class="material-symbols-outlined text-[16px]">check</span>
+              </button>
+              <button type="button" class="btn-action-incomplete w-7 h-7 rounded-lg bg-surface-container flex items-center justify-center shrink-0 text-on-surface-variant hover:text-primary hover:bg-surface-container-high border border-outline-variant/40 active:scale-95 transition-all" title="Mark Incomplete / Cancelled (✕)">
+                <span class="material-symbols-outlined text-[16px]">close</span>
+              </button>
+              <span class="task-text text-xs font-bold text-primary truncate tracking-wide ml-0.5">${escapeHtml(task.text)}</span>
             </div>
-            <button aria-label="Delete task" class="delete-task opacity-40 hover:opacity-100 text-on-surface-variant hover:text-primary transition-opacity p-1">
-              <span class="material-symbols-outlined text-[18px]">close</span>
+            <button aria-label="Delete task" class="delete-task opacity-40 hover:opacity-100 text-on-surface-variant hover:text-primary transition-opacity p-1.5 rounded-lg hover:bg-surface-container-high" title="Delete Habit">
+              <span class="material-symbols-outlined text-[18px]">delete_outline</span>
             </button>
           </div>
         `).join('');
       }
 
+      // 2. Render Completed Tasks
       if (completedTasks.length === 0) {
         completedTaskList.innerHTML = `
           <div class="p-2.5 text-center text-[11px] font-semibold text-on-surface-variant/50 bg-surface-container-low/30 rounded-xl">
@@ -267,38 +292,80 @@
         `;
       } else {
         completedTaskList.innerHTML = completedTasks.map(task => `
-          <div class="task-item flex items-center justify-between p-space-md bg-surface-container-low rounded-xl hover:bg-surface-container transition-colors select-none cursor-pointer border border-outline-variant/30" data-id="${task.id}">
-            <div class="flex items-center gap-space-md min-w-0">
-              <div class="task-checkbox w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0 transition-colors">
-                <span class="material-symbols-outlined text-[15px] text-on-primary font-bold">check</span>
-              </div>
-              <span class="task-text text-xs font-bold text-on-surface-variant line-through truncate tracking-wide">${escapeHtml(task.text)}</span>
+          <div class="task-item flex items-center justify-between p-space-md py-2.5 px-3 bg-surface-container-low/80 rounded-xl hover:bg-surface-container transition-colors select-none border border-outline-variant/30 group" data-id="${task.id}">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <button type="button" class="btn-action-undo w-7 h-7 rounded-lg bg-primary text-on-primary font-bold flex items-center justify-center shrink-0 shadow-sm active:scale-95 transition-transform" title="Mark as To-Do (Undo)">
+                <span class="material-symbols-outlined text-[16px] font-bold">check</span>
+              </button>
+              <button type="button" class="btn-action-incomplete w-7 h-7 rounded-lg bg-surface-container/50 flex items-center justify-center shrink-0 text-on-surface-variant hover:text-primary hover:bg-surface-container-high border border-outline-variant/30 active:scale-95 transition-all" title="Switch to Incomplete">
+                <span class="material-symbols-outlined text-[16px]">close</span>
+              </button>
+              <span class="task-text text-xs font-bold text-on-surface-variant line-through truncate tracking-wide ml-0.5">${escapeHtml(task.text)}</span>
+              <span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-surface-container-high text-primary border border-outline-variant/40 uppercase tracking-wider shrink-0 ml-auto mr-1">DONE</span>
             </div>
-            <button aria-label="Delete task" class="delete-task opacity-40 hover:opacity-100 text-on-surface-variant hover:text-primary transition-opacity p-1">
-              <span class="material-symbols-outlined text-[18px]">close</span>
+            <button aria-label="Delete task" class="delete-task opacity-40 hover:opacity-100 text-on-surface-variant hover:text-primary transition-opacity p-1.5 rounded-lg hover:bg-surface-container-high" title="Delete Habit">
+              <span class="material-symbols-outlined text-[18px]">delete_outline</span>
             </button>
           </div>
         `).join('');
       }
 
+      // 3. Render Incomplete / Cancelled Tasks
+      if (incompleteTaskList) {
+        if (incompleteTasks.length === 0) {
+          incompleteTaskList.innerHTML = `
+            <div class="p-2.5 text-center text-[11px] font-semibold text-on-surface-variant/50 bg-surface-container-low/30 rounded-xl">
+              NO INCOMPLETE TASKS
+            </div>
+          `;
+        } else {
+          incompleteTaskList.innerHTML = incompleteTasks.map(task => `
+            <div class="task-item flex items-center justify-between p-space-md py-2.5 px-3 bg-surface-container-low/80 rounded-xl hover:bg-surface-container transition-colors select-none border border-outline-variant/30 group" data-id="${task.id}">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <button type="button" class="btn-action-undo w-7 h-7 rounded-lg bg-surface-container-high text-primary border border-outline-variant/80 flex items-center justify-center shrink-0 active:scale-95 transition-transform" title="Mark as To-Do (Undo)">
+                  <span class="material-symbols-outlined text-[16px] font-bold">close</span>
+                </button>
+                <button type="button" class="btn-action-complete w-7 h-7 rounded-lg bg-surface-container/50 flex items-center justify-center shrink-0 text-on-surface-variant hover:text-primary hover:bg-surface-container-high border border-outline-variant/30 active:scale-95 transition-all" title="Switch to Completed">
+                  <span class="material-symbols-outlined text-[16px]">check</span>
+                </button>
+                <span class="task-text text-xs font-bold text-on-surface-variant line-through truncate tracking-wide ml-0.5">${escapeHtml(task.text)}</span>
+                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant border border-outline-variant/40 uppercase tracking-wider shrink-0 ml-auto mr-1">MISSED</span>
+              </div>
+              <button aria-label="Delete task" class="delete-task opacity-40 hover:opacity-100 text-on-surface-variant hover:text-primary transition-opacity p-1.5 rounded-lg hover:bg-surface-container-high" title="Delete Habit">
+                <span class="material-symbols-outlined text-[18px]">delete_outline</span>
+              </button>
+            </div>
+          `).join('');
+        }
+      }
+
       const total = tasks.length;
       const completedCount = completedTasks.length;
+      const incompleteCount = incompleteTasks.length;
       const pendingCount = pendingTasks.length;
 
-      taskCounter.textContent = `${completedCount} OF ${total} COMPLETED`;
+      taskCounter.textContent = `${completedCount} DONE • ${incompleteCount} MISSED (${total} TOTAL)`;
       pendingCountLabel.textContent = `${pendingCount} PENDING`;
       completedCountLabel.textContent = `${completedCount} COMPLETED`;
+      if (incompleteCountLabel) {
+        incompleteCountLabel.textContent = `${incompleteCount} INCOMPLETE`;
+      }
     }
 
     function handleTaskInteraction(container) {
+      if (!container) return;
       container.addEventListener('click', (e) => {
         const deleteBtn = e.target.closest('.delete-task');
+        const completeBtn = e.target.closest('.btn-action-complete');
+        const incompleteBtn = e.target.closest('.btn-action-incomplete');
+        const undoBtn = e.target.closest('.btn-action-undo');
         const taskItem = e.target.closest('.task-item');
         if (!taskItem) return;
 
         const taskId = taskItem.getAttribute('data-id');
         const tasks = getTasksForDate(selectedDate);
         const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
 
         if (deleteBtn) {
           e.stopPropagation();
@@ -307,20 +374,48 @@
           saveHabitsStore();
           renderTasks();
           renderCalendar();
+          showTradeToast('HABIT REMOVED');
           return;
         }
 
-        if (task) {
-          task.completed = !task.completed;
+        if (completeBtn) {
+          e.stopPropagation();
+          task.completed = true;
+          task.status = 'completed';
           saveHabitsStore();
           renderTasks();
           renderCalendar();
+          showTradeToast(`COMPLETED: ${task.text}`);
+          return;
+        }
+
+        if (incompleteBtn) {
+          e.stopPropagation();
+          task.completed = false;
+          task.status = 'incomplete';
+          saveHabitsStore();
+          renderTasks();
+          renderCalendar();
+          showTradeToast(`MARKED INCOMPLETE: ${task.text}`, 'cancel');
+          return;
+        }
+
+        if (undoBtn) {
+          e.stopPropagation();
+          task.completed = false;
+          task.status = 'pending';
+          saveHabitsStore();
+          renderTasks();
+          renderCalendar();
+          showTradeToast(`MOVED TO TO-DO: ${task.text}`);
+          return;
         }
       });
     }
 
     handleTaskInteraction(taskList);
     handleTaskInteraction(completedTaskList);
+    handleTaskInteraction(incompleteTaskList);
 
     taskForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -331,13 +426,15 @@
       tasks.push({
         id: 't-' + Date.now(),
         text: val,
-        completed: false
+        completed: false,
+        status: 'pending'
       });
 
       saveHabitsStore();
       taskInput.value = '';
       renderTasks();
       renderCalendar();
+      showTradeToast(`HABIT ADDED: ${val}`);
     });
 
     btnSaveLifestyle.addEventListener('click', () => {
@@ -1273,7 +1370,7 @@
       const ctx = canvas.getContext('2d');
 
       const width = 800;
-      const height = 300 + (tasks.length * 55) + 60;
+      const height = 320 + (tasks.length * 56) + 60;
       canvas.width = width;
       canvas.height = height;
 
@@ -1291,32 +1388,88 @@
       ctx.font = '14px Outfit, Inter, sans-serif';
       ctx.fillText(`DATE: ${selectedDateSub.textContent}`, 60, 115);
 
+      // Summary Card
       ctx.fillStyle = '#201f1f';
-      roundRect(ctx, 60, 140, width - 120, 65, 14, true, false);
+      roundRect(ctx, 60, 138, width - 120, 78, 16, true, false);
 
-      const completedCount = tasks.filter(t => t.completed).length;
+      const completedCount = tasks.filter(t => getTaskStatus(t) === 'completed').length;
+      const incompleteCount = tasks.filter(t => getTaskStatus(t) === 'incomplete').length;
+      const pendingCount = tasks.filter(t => getTaskStatus(t) === 'pending').length;
+
+      // Summary Pills
+      // 1. Completed
+      ctx.fillStyle = '#262626';
+      roundRect(ctx, 80, 154, 180, 46, 12, true, false);
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 18px Outfit, Inter, sans-serif';
-      ctx.fillText(`COMPLETION: ${completedCount} OF ${tasks.length} HABITS COMPLETED`, 85, 180);
+      ctx.font = 'bold 12px Outfit, Inter, sans-serif';
+      ctx.fillText(`✔ COMPLETED: ${completedCount}`, 96, 182);
 
-      let y = 240;
+      // 2. Incomplete / Missed
+      ctx.fillStyle = '#262626';
+      roundRect(ctx, 280, 154, 180, 46, 12, true, false);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px Outfit, Inter, sans-serif';
+      ctx.fillText(`✖ INCOMPLETE: ${incompleteCount}`, 296, 182);
+
+      // 3. Pending
+      ctx.fillStyle = '#1c1b1b';
+      roundRect(ctx, 480, 154, 160, 46, 12, true, false);
+      ctx.fillStyle = '#8e9192';
+      ctx.font = 'bold 12px Outfit, Inter, sans-serif';
+      ctx.fillText(`○ PENDING: ${pendingCount}`, 496, 182);
+
+      let y = 245;
       tasks.forEach((t, i) => {
-        ctx.fillStyle = t.completed ? '#1e281e' : '#201f1f';
-        roundRect(ctx, 60, y, width - 120, 46, 10, true, false);
+        const st = getTaskStatus(t);
 
-        ctx.fillStyle = t.completed ? '#52c41a' : '#8e9192';
-        ctx.font = 'bold 16px Outfit, Inter, sans-serif';
-        ctx.fillText(t.completed ? '✔' : '○', 85, y + 29);
+        if (st === 'completed') {
+          ctx.fillStyle = '#222222';
+          roundRect(ctx, 60, y, width - 120, 48, 10, true, false);
 
-        ctx.fillStyle = t.completed ? '#8e9192' : '#ffffff';
-        ctx.font = 'bold 13px Outfit, Inter, sans-serif';
-        ctx.fillText(t.text, 120, y + 29);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 18px Outfit, Inter, sans-serif';
+          ctx.fillText('✔', 85, y + 31);
 
-        ctx.fillStyle = t.completed ? '#52c41a' : '#8e9192';
-        ctx.font = 'bold 11px Outfit, Inter, sans-serif';
-        ctx.fillText(t.completed ? 'COMPLETED' : 'PENDING', width - 180, y + 29);
+          ctx.fillStyle = '#8e9192';
+          ctx.font = 'bold 13px Outfit, Inter, sans-serif';
+          ctx.fillText(t.text, 120, y + 31);
 
-        y += 55;
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 11px Outfit, Inter, sans-serif';
+          ctx.fillText('COMPLETED', width - 180, y + 31);
+        } else if (st === 'incomplete') {
+          ctx.fillStyle = '#1f1f1f';
+          roundRect(ctx, 60, y, width - 120, 48, 10, true, false);
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 18px Outfit, Inter, sans-serif';
+          ctx.fillText('✖', 85, y + 31);
+
+          ctx.fillStyle = '#8e9192';
+          ctx.font = 'bold 13px Outfit, Inter, sans-serif';
+          ctx.fillText(t.text, 120, y + 31);
+
+          ctx.fillStyle = '#c4c7c8';
+          ctx.font = 'bold 11px Outfit, Inter, sans-serif';
+          ctx.fillText('INCOMPLETE', width - 180, y + 31);
+        } else {
+          ctx.fillStyle = '#1c1b1b';
+          roundRect(ctx, 60, y, width - 120, 48, 10, true, false);
+
+          ctx.fillStyle = '#8e9192';
+          ctx.font = 'bold 18px Outfit, Inter, sans-serif';
+          ctx.fillText('○', 85, y + 31);
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 13px Outfit, Inter, sans-serif';
+          ctx.fillText(t.text, 120, y + 31);
+
+          ctx.fillStyle = '#8e9192';
+          ctx.font = 'bold 11px Outfit, Inter, sans-serif';
+          ctx.fillText('PENDING', width - 180, y + 31);
+        }
+
+        y += 56;
       });
 
       showReport(canvas, 'DAILY HABITS REPORT', `ERA_HABITS_REPORT_${getDateKey(selectedDate)}.png`);
