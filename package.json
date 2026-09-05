@@ -1,0 +1,23 @@
+{
+  "name": "my-daily-habits-tracker",
+  "version": "1.0.0",
+  "description": "A dark-mode, mobile-first web application & PWA designed for high performance and daily discipline across three essential domains: 1. **Lifestyle**: Daily habits checklist with expandable month calendar & completion metrics. 2. **Trading**: Trade execution logger, journal entries, lot-size & risk calculator, and performance summary. 3. **Gym**: Workout notepad for sets, reps, and exercise logs with date-based filtering.",
+  "main": "index.html",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:firebase": "node scripts/test-firebase-connection.js"
+  },
+  "bugs": {
+    "url": "https://github.com/pranithp82-cmd/MY-ERA/issues"
+  },
+  "homepage": "https://github.com/pranithp82-cmd/MY-ERA#readme",
+  "dependencies": {
+    "firebase": "^12.18.0"
+  },
+  "devDependencies": {
+    "vite": "^8.2.2"
+  }
+}
